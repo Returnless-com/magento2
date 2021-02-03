@@ -18,6 +18,11 @@ use Returnless\Connector\Model\Config;
 class OrderInfo implements OrderInfoInterface
 {
     /**
+     * const PRODUCT_TYPE_BUNDLE
+     */
+    const PRODUCT_TYPE_BUNDLE = 'bundle';
+
+    /**
      * @var bool
      */
     protected $returnFlag = false;
@@ -116,19 +121,70 @@ class OrderInfo implements OrderInfoInterface
                 $orderInfo['billing_address']['addition'] = isset($street[2]) ? $street[2] : '';
             }
 
-            $orderItems = $order->getAllVisibleItems();
+            $separateBundle = $this->config->getSeparateBundle();
+            $orderItems = $separateBundle ? $order->getAllItems() : $order->getAllVisibleItems();
 
             $this->logger->debug('Order has items', [count($orderItems)]);
 
             foreach ($orderItems as $orderItemKey => $orderItem) {
+                if ($orderItem->getParentItemId()) {
+                    continue;
+                }
+
                 $orderInfo['order_products'][$orderItemKey]['product_id'] = $orderItem->getProductId();
                 $orderInfo['order_products'][$orderItemKey]['quantity'] = $orderItem->getQtyOrdered();
                 $orderInfo['order_products'][$orderItemKey]['order_product_id'] = $orderItem->getItemId();
+
+                $orderInfo['order_products'][$orderItemKey]['price'] = $orderItem->getBasePrice();
+                $orderInfo['order_products'][$orderItemKey]['discount_amount'] = $orderItem->getDiscountAmount();
                 $orderInfo['order_products'][$orderItemKey]['price_inc_tax'] = $orderItem->getPriceInclTax();
+                $orderInfo['order_products'][$orderItemKey]['total_amount'] = $orderItem->getRowTotalInclTax();
                 $orderInfo['order_products'][$orderItemKey]['model'] = $orderItem->getSku();
+
+                $itemType = $orderItem->getProductType();
+
+                $orderInfo['order_products'][$orderItemKey]['item_type'] = $itemType;
+
+                if ($itemType === self::PRODUCT_TYPE_BUNDLE && $separateBundle) {
+                    $orderInfo['order_products'][$orderItemKey]['is_bundle'] = true;
+                    $orderInfo['order_products'][$orderItemKey]['bundle_item_id'] = $orderItem->getItemId();
+                    $orderInfo['order_products'][$orderItemKey]['is_separated'] = 1;
+
+                    if ($orderItem->getChildrenItems()) {
+                        foreach ($orderItem->getChildrenItems() as $key => $bundleChildren) {
+                            $orderInfo['order_products'][$orderItemKey]['bundle_children'][$key]['product_id'] = $bundleChildren->getProductId();
+                            $orderInfo['order_products'][$orderItemKey]['bundle_children'][$key]['quantity'] = $bundleChildren->getQtyOrdered();
+                            $orderInfo['order_products'][$orderItemKey]['bundle_children'][$key]['order_product_id'] = $bundleChildren->getItemId();
+
+                            $orderInfo['order_products'][$orderItemKey]['bundle_children'][$key]['price'] = $bundleChildren->getBasePrice();
+                            $orderInfo['order_products'][$orderItemKey]['bundle_children'][$key]['discount_amount'] = $bundleChildren->getDiscountAmount();
+                            $orderInfo['order_products'][$orderItemKey]['bundle_children'][$key]['price_inc_tax'] = $bundleChildren->getPriceInclTax();
+                            $orderInfo['order_products'][$orderItemKey]['bundle_children'][$key]['total_amount'] = $bundleChildren->getRowTotalInclTax();
+                            $orderInfo['order_products'][$orderItemKey]['bundle_children'][$key]['model'] = $bundleChildren->getSku();
+
+                            $product = $this->getProductById($bundleChildren->getProductId());
+
+                            $orderInfo['order_products'][$orderItemKey]['bundle_children'][$key]['cost'] = $product->getPrice();
+                            $orderInfo['order_products'][$orderItemKey]['bundle_children'][$key]['name'] = $product->getName();
+                            $orderInfo['order_products'][$orderItemKey]['bundle_children'][$key]['images'][0]['http_path'] = $this->getImageByProduct($product);
+                            $orderInfo['order_products'][$orderItemKey]['bundle_children'][$key]['images'][1]['http_path'] = $this->getImageByProduct1($product);
+                            $orderInfo['order_products'][$orderItemKey]['bundle_children'][$key]['url'] = $product->getProductUrl();
+                            $orderInfo['order_products'][$orderItemKey]['bundle_children'][$key]['categories_ids'] = $product->getCategoryIds();
+                            $orderInfo['order_products'][$orderItemKey]['bundle_children'][$key]['u_brand'] = $product->getBrand();
+
+                            $eavAttributeCode = $this->config->getEanAttributeCode();
+
+                            $orderInfo['order_products'][$orderItemKey]['bundle_children'][$key]['u_upc'] = null;
+                            if (!empty($eavAttributeCode)) {
+                                $orderInfo['order_products'][$orderItemKey]['bundle_children'][$key]['u_upc'] = $product->getData($eavAttributeCode);
+                            }
+                        }
+                    }
+                }
 
                 $product = $this->getProductById($orderItem->getProductId());
 
+                $orderInfo['order_products'][$orderItemKey]['cost'] = $product->getPrice();
                 $orderInfo['order_products'][$orderItemKey]['name'] = $product->getName();
                 $orderInfo['order_products'][$orderItemKey]['images'][0]['http_path'] = $this->getImageByProduct($product);
                 $orderInfo['order_products'][$orderItemKey]['images'][1]['http_path'] = $this->getImageByProduct1($product);

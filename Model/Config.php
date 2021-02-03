@@ -31,6 +31,11 @@ class Config
     const CONFIG_EAN_ATTRIBUTE_CODE = 'returnless_connector/general/u_upc';
 
     /**
+     * const CONFIG_SEPARATE_BUNDLE_PRODUCTS
+     */
+    const CONFIG_SEPARATE_BUNDLE_PRODUCTS = 'returnless_connector/general/bundle_enabled';
+
+    /**
      * Config constructor.
      *
      * @param ScopeConfigInterface $scopeConfig
@@ -84,5 +89,22 @@ class Config
         );
 
         return $eanAttributeCode;
+    }
+
+    /**
+     * Enabled separate bundle products
+     *
+     * @param null $store
+     * @return string
+     */
+    public function getSeparateBundle($store = null)
+    {
+        $separateBundle = (string)$this->scopeConfig->getValue(
+            self::CONFIG_SEPARATE_BUNDLE_PRODUCTS,
+            ScopeInterface::SCOPE_STORE,
+            $store
+        );
+
+        return $separateBundle;
     }
 }

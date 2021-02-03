@@ -24,6 +24,11 @@
                     <label>EAN attribute code</label>
                     <comment><![CDATA[The name of the EAN attribute in your system]]></comment>
                 </field>
+                <field id="bundle_enabled" translate="label" type="select" sortOrder="40" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Separate bundle products</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment><![CDATA[Separation of bundles will be enabled.]]></comment>
+                </field>
             </group>
         </section>
     </system>
